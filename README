@@ -1,0 +1,35 @@
+File-Split version 0.20
+=======================
+
+To install this module, install through
+
+	cpan File::Split
+
+There are dependancies on:
+
+	Data::Dumper;
+	File::Basename
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+        Data::Dumper;
+        File::Basename
+
+COPYRIGHT AND LICENCE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.3 or,
+at your option, any later version of Perl 5 you may have available.
+
+
