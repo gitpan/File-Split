@@ -6,8 +6,10 @@ use File::Basename;
 use strict;
 use warnings;
 
+# Leverage this for file splitting.
+#http://iis1.cps.unizar.es/Oreilly/perl/cookbook/ch08_03.htm
 
-our $VERSION = '0.26';
+our $VERSION = '0.27';
 
 sub new {
     my $class   = shift;
@@ -63,12 +65,13 @@ sub split_file
                 print $fh $out_data_str;
                 
             }
-                my $out_file = "$in_file.$parts";
-                my @out_data_slice = @out_data[($parts-1)*$size..(@out_data-1)];
-                my $out_data_str = join('',@out_data_slice);
-                open my $fh, "> $out_file" or warn "Cannot write to $out_file: $!";
-                print $fh $out_data_str;
+            my $out_file = "$in_file.$parts";
+            my @out_data_slice = @out_data[($parts-1)*$size..(@out_data-1)];
+            my $out_data_str = join('',@out_data_slice);
+            open my $fh, "> $out_file" or warn "Cannot write to $out_file: $!";
+            print $fh $out_data_str;
             
+            unlink($in_file) unless ($self->{'keepSource'});
 
         } elsif ($args->{'bin-parts'})
         {
@@ -156,7 +159,7 @@ sub split_file
             # Output file data
             foreach my $part (keys %{$file_data})
             {
-                print Dumper(keys %{$file_data});
+                #print Dumper(keys %{$file_data});
                 print $part;
                 open my $fh, "> $in_file.$part" or die "Cannot write to $in_file.$part: $!";
                 print $fh $file_data->{$part};
@@ -177,7 +180,7 @@ sub split_file
 #   Returns undef if no files were found to merge, the merged filename if merging was successful.
 sub merge_file($;)
 {
-    print Dumper(@_);
+    #print Dumper(@_);
     my $self = shift;
     my $out_file = shift;   # filepath for output file.
     
@@ -197,8 +200,8 @@ sub merge_file($;)
         my ($name,$path) = fileparse($out_file);                # Split filepath
 
         opendir(DIR, $path) || die "can't opendir $path: $!";   # Read from the file dir
-    my @files = grep {/$name\./}  readdir(DIR);         # find all matching subfiles
-    @files = map {"$path$_"}  @files;        
+        my @files = grep {/$name\./}  readdir(DIR);         # find all matching subfiles
+        @files = map {"$path$_"}  @files;        
         #print Dumper(@files);
         return unless (@files);                                 # Return if no files found to merge.
         $in_files = \@files;
