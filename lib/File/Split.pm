@@ -8,10 +8,7 @@ use POSIX qw(ceil floor);
 use strict;
 use warnings;
 
-# Leverage this for file splitting.
-#http://iis1.cps.unizar.es/Oreilly/perl/cookbook/ch08_03.htm
-
-our $VERSION = '0.28';
+our $VERSION = '0.30';
 
 sub new {
     my $class   = shift;
@@ -24,26 +21,21 @@ sub new {
 };
 
 
-# Splits a file into an arbitrary number of parts. split_file({'parts'}=>'10',filepath)
-# Dies if it can't read or write a file.
-# Returns an arrayref of split filepaths
-
-# I you want to match regular expressions
-#   you call it like this:
-#   split_file(grep=>{'\t(AB)\t','\t(BC)\t',...,...},filepath)
-# and the file will be split into subfiles like this:
-#   filepath.AB
-#   filepath.BC
+# Splits a file based on innumerable parameters.
+# Check the perldocs for use information.
 sub split_file
 {
     my $self = shift;
-    my $args = shift;          ### how many parts to split
-    #my @in_files = @_;           ### the files to split
+    my $args = shift;          # how many parts to split
     
-    my @out_files;          ##0# Array of filenames that were generated.
+    my @out_files;          # Array of filenames that were generated.
     
     
     my $in_file = shift; 
+
+    return unless $in_file; # No file to split
+
+
     if (($args->{'parts'})||($args->{'lines'}))
     {
         
@@ -54,6 +46,7 @@ sub split_file
         my $parts;
         my $size;
 
+        # Given either 'parts' or 'lines' calculate the other.
         if ($args->{'parts'})
         {
             $parts = $args->{'parts'};
@@ -67,10 +60,8 @@ sub split_file
         my @slices;
 
         # Array::Dissect can't be used on an empty array.
-        if (@out_data)
-        {
-            @slices = reform( $size, @out_data);
-        };
+        @slices = reform( $size, @out_data) if (@out_data);
+
         
         # If the array slicing under-generates arrays for the required number of parts, add on some empty ones.
         # Only really used for generating files from an empty (or near empty) file.
@@ -89,44 +80,11 @@ sub split_file
             
         }
         
-       
+        
 
         unlink($in_file) unless ($self->{'keepSource'});
 
-    } elsif ($args->{'bin-parts'})
-    {
-        
-        my $parts = $args->{'bin-parts'};
-        my $size = (-s $in_file) / $parts;   ### how big should the new file be?
-
-        ### open the input file
-        open my $in_fh, $in_file or return(undef);
-        binmode $in_fh;
-    
-        ### for all but the last part, read the amount of data, then write it to the appropriate output file.
-        for my $part (1 .. $parts - 1) {
-    
-            ### read an output file worth of data
-            read $in_fh, my $buffer, $size or warn "Read zero bytes from $in_file: $!";
-    
-            ### write the output file
-            open my $fh, "> $in_file.$part" or die "Cannot write to $in_file.$part: $!";
-
-            ### Track generated files.
-            $out_files[@out_files] = "$in_file.$part";    
-
-            print $fh $buffer;
-        }
-    
-        # for the last part, read the rest of the file. Buffer will shrink to the actual bytes read.
-        read $in_fh, my $buffer, (-s $in_file) or warn "Read zero bytes from $in_file: $!";
-        open my $fh, "> $in_file.$parts" or die "Cannot write to $in_file.$parts: $!";
-        $out_files[@out_files] = "$in_file.$parts";    ### Track generated files.
-        print $fh $buffer;
-        
-        unlink($in_file) unless ($self->{'keepSource'});
-    } 
-    elsif($args->{'grep'}||$args->{'substr'}) 
+    } elsif($args->{'grep'}||$args->{'substr'}) 
     {
         my $file_data;  # The lines will go in here.
 
@@ -141,13 +99,10 @@ sub split_file
             }
         }
 
-
-
         open my $in_fh, $in_file or return(undef);
-        binmode $in_fh;
-        while (<$in_fh>)
+        while (my $line = <$in_fh>)
         {
-            my $line = $_;
+            print $line;
             if (ref($args->{'grep'}) eq 'HASH')
             {
                 # User passed in a hash of regular expressions.
@@ -178,17 +133,15 @@ sub split_file
             } elsif ($args->{'substr'})
             {
                 my $vals = ref($args->{'substr'}->{'val'})?$args->{'substr'}->{'val'}:[$args->{'substr'}->{'val'}];
-                #print "Next line:$_\n";
-                #print "Vals:".Dumper($vals);
+
                 foreach my $val (@{$vals})
                 {
                    $file_data->{$val} .= ''; 
                     
-                    #print substr($_,$args->{'substr'}->{'pos'},length($val))."\n";
-                    if (substr($_,$args->{'substr'}->{'pos'},length($val)) eq $val)
+                    if (substr($line,$args->{'substr'}->{'pos'},length($val)) eq $val)
                     {
-                        #print "!!!!";
-                       $file_data->{$val} .= $_;
+
+                       $file_data->{$val} .= $line;
                     }
                 }
             }
@@ -239,7 +192,6 @@ sub merge_file($;)
         opendir(DIR, $path) || die "can't opendir $path: $!";   # Read from the file dir
         my @files = grep {/$name\./}  readdir(DIR);         # find all matching subfiles
         @files = map {"$path$_"}  @files;        
-        #print Dumper(@files);
         return unless (@files);                                 # Return if no files found to merge.
         $in_files = \@files;
     }
@@ -289,7 +241,11 @@ File::Split
 
  my $files_out = $fs->split_file({'parts' => 10},'filepath');
 
-=head1 DESCRIPTION
+ Creates ten files named 'filepath.1','filepath.2',...,'filepath.10'.
+
+
+
+ =head1 DESCRIPTION
 
 File::Split defaults to removing the now-split file.
 
@@ -338,9 +294,9 @@ Merge any file that matches 'filepath_for_reconstructed_file*'
  
 =head1 CAVEATS
 
-This script isn't fully mature, and interfaces may change. I wouldn't stick it in your enterprise application if I were you.
+This script isn't fully mature, and interfaces may change. 
 
-File::Split will create empty files if you split an empty file. So if you request five parts, you will receive five parts.
+File::Split will create empty files if you split an empty file. If you request five parts, you will receive five parts.
 
 File::Split will return undef if you try to split a non-existant file.
 

@@ -1,4 +1,4 @@
-File-Split version 0.28
+File-Split version 0.30
 =======================
 
 To install this module, install through
@@ -25,6 +25,7 @@ This module requires these other modules and libraries:
 
         Data::Dumper;
         File::Basename
+        Array::Dissect
 
 COPYRIGHT AND LICENCE
 

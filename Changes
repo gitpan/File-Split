@@ -1,6 +1,6 @@
 Revision history for Perl extension File::Split.
 
-0.01  Mon Dec 20 12:34:19 2004
+0.30  Tue Feb 15 16:02:04 2005
 	- original version; created by h2xs 1.23 with options
-		-X -n File::Split
+		-v 0.30 -X -n File::Split
 
