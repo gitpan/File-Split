@@ -2,6 +2,8 @@ package File::Split;
 
 use Data::Dumper;
 use File::Basename;
+use Array::Dissect qw( :all );
+use POSIX qw(ceil floor);
 
 use strict;
 use warnings;
@@ -9,7 +11,7 @@ use warnings;
 # Leverage this for file splitting.
 #http://iis1.cps.unizar.es/Oreilly/perl/cookbook/ch08_03.htm
 
-our $VERSION = '0.27';
+our $VERSION = '0.28';
 
 sub new {
     my $class   = shift;
@@ -36,137 +38,172 @@ sub split_file
 {
     my $self = shift;
     my $args = shift;          ### how many parts to split
-    my @in_files = @_;           ### the files to split
+    #my @in_files = @_;           ### the files to split
     
-    my @out_files;          ### Array of filenames that were generated.
+    my @out_files;          ##0# Array of filenames that were generated.
     
     
-        
-    foreach my $in_file( @in_files ) 
+    my $in_file = shift; 
+    if (($args->{'parts'})||($args->{'lines'}))
     {
+        
+        open my $in_fh, $in_file or return(undef);
+        my @out_data = <$in_fh>;   
+        close $in_fh;
+
+        my $parts;
+        my $size;
+
         if ($args->{'parts'})
         {
-            # Get filedata (could be improved by streaming, but it isn't).
-            # All I need is a better way to count the number of lines in a file.
-            open my $in_fh, $in_file or die "Cannot read $in_file: $!";
-            my @out_data = <$in_fh>;   
-            close $in_fh;
-            
-            my $parts = $args->{'parts'};
-            my $size = @out_data / $parts;
-            #print "Size $size\nParts $parts\n";
-            my $x =-1;
-            while ($x++ < $parts-1)
-            {
-                my $out_file = "$in_file.".($x+1);
-                my @out_data_slice = @out_data[($x*$size)..(($x*$size)+($size-1))];
-                my $out_data_str = join('',@out_data_slice);
-                open my $fh, "> $out_file" or warn "Cannot write to $out_file: $!";
-                print $fh $out_data_str;
-                
-            }
-            my $out_file = "$in_file.$parts";
-            my @out_data_slice = @out_data[($parts-1)*$size..(@out_data-1)];
-            my $out_data_str = join('',@out_data_slice);
+            $parts = $args->{'parts'};
+            $size = int(@out_data / $parts)+1;
+        } elsif ($args->{'lines'})
+        {
+            $size = $args->{'lines'};
+            $parts = int( @out_data/$size ) + 1;
+        }
+        
+        my @slices;
+
+        # Array::Dissect can't be used on an empty array.
+        if (@out_data)
+        {
+            @slices = reform( $size, @out_data);
+        };
+        
+        # If the array slicing under-generates arrays for the required number of parts, add on some empty ones.
+        # Only really used for generating files from an empty (or near empty) file.
+        while (@slices < $parts)
+        {
+            $slices[@slices] = [];
+        }
+        
+        for (my $x=1;$x<=@slices;$x++)
+        {
+            my $out_data_str = join('',@{$slices[$x-1]});   # Convert data to string
+            my $out_file = "$in_file.".$x;
             open my $fh, "> $out_file" or warn "Cannot write to $out_file: $!";
             print $fh $out_data_str;
+            $out_files[@out_files] = $out_file;    ### Track generated files.
             
-            unlink($in_file) unless ($self->{'keepSource'});
+        }
+        
+       
 
-        } elsif ($args->{'bin-parts'})
-        {
-            
-            my $parts = $args->{'bin-parts'};
-            my $size = (-s $in_file) / $parts;   ### how big should the new file be?
+        unlink($in_file) unless ($self->{'keepSource'});
+
+    } elsif ($args->{'bin-parts'})
+    {
+        
+        my $parts = $args->{'bin-parts'};
+        my $size = (-s $in_file) / $parts;   ### how big should the new file be?
+
+        ### open the input file
+        open my $in_fh, $in_file or return(undef);
+        binmode $in_fh;
     
-            ### open the input file
-            open my $in_fh, $in_file or die "Cannot read $in_file: $!";
-            binmode $in_fh;
-        
-            ### for all but the last part, read the amount of data, then write it to the appropriate output file.
-            for my $part (1 .. $parts - 1) {
-        
-                ### read an output file worth of data
-                read $in_fh, my $buffer, $size or warn "Read zero bytes from $in_file: $!";
-        
-                ### write the output file
-                open my $fh, "> $in_file.$part" or die "Cannot write to $in_file.$part: $!";
+        ### for all but the last part, read the amount of data, then write it to the appropriate output file.
+        for my $part (1 .. $parts - 1) {
     
-                ### Track generated files.
-                $out_files[@out_files] = "$in_file.$part";    
+            ### read an output file worth of data
+            read $in_fh, my $buffer, $size or warn "Read zero bytes from $in_file: $!";
     
-                print $fh $buffer;
-            }
-        
-            # for the last part, read the rest of the file. Buffer will shrink to the actual bytes read.
-            read $in_fh, my $buffer, (-s $in_file) or warn "Read zero bytes from $in_file: $!";
-            open my $fh, "> $in_file.$parts" or die "Cannot write to $in_file.$parts: $!";
-            $out_files[@out_files] = "$in_file.$parts";    ### Track generated files.
+            ### write the output file
+            open my $fh, "> $in_file.$part" or die "Cannot write to $in_file.$part: $!";
+
+            ### Track generated files.
+            $out_files[@out_files] = "$in_file.$part";    
+
             print $fh $buffer;
-            
-            unlink($in_file) unless ($self->{'keepSource'});
-        } 
-        elsif($args->{'grep'}||$args->{'substr'}) 
+        }
+    
+        # for the last part, read the rest of the file. Buffer will shrink to the actual bytes read.
+        read $in_fh, my $buffer, (-s $in_file) or warn "Read zero bytes from $in_file: $!";
+        open my $fh, "> $in_file.$parts" or die "Cannot write to $in_file.$parts: $!";
+        $out_files[@out_files] = "$in_file.$parts";    ### Track generated files.
+        print $fh $buffer;
+        
+        unlink($in_file) unless ($self->{'keepSource'});
+    } 
+    elsif($args->{'grep'}||$args->{'substr'}) 
+    {
+        my $file_data;  # The lines will go in here.
+
+        #Ensure creation of each requested sunbstring file.
+        # Bad code taste
+        if ($args->{'substr'})
         {
-            my $file_data;  # The lines will go in here.
-            
-            open my $in_fh, $in_file or die "Cannot read $in_file: $!";
-            binmode $in_fh;
-            while (<$in_fh>)
+            my $vals = ref($args->{'substr'}->{'val'})?$args->{'substr'}->{'val'}:[$args->{'substr'}->{'val'}];
+            foreach my $val (@{$vals})
             {
-                my $line = $_;
-                if (ref($args->{'grep'}) eq 'HASH')
+                $file_data->{$val} = '';
+            }
+        }
+
+
+
+        open my $in_fh, $in_file or return(undef);
+        binmode $in_fh;
+        while (<$in_fh>)
+        {
+            my $line = $_;
+            if (ref($args->{'grep'}) eq 'HASH')
+            {
+                # User passed in a hash of regular expressions.
+                foreach my $type (keys %{$args->{'grep'}})
                 {
-                    # User passed in a hash of regular expressions.
-                    foreach my $type (keys %{$args->{'grep'}})
-                    {
-                        my $greps = ref($args->{'grep'}->{$type})?$args->{'grep'}->{$type}:[$args->{'grep'}->{$type}];
-                        foreach my $grep (@{$greps})
-                        {
-                            #print Dumper("$line ... $grep\n");
-                            if ($line=~ /$grep/)
-                            {
-                               $file_data->{$type} .= $line;
-                            }
-                        }
-                        
-                    }
-                } elsif ($args->{'grep'}) {
-                    # Straight up regular expression array
-                    my $greps = ref($args->{'grep'})?$args->{'grep'}:[$args->{'grep'}];
+                    my $greps = ref($args->{'grep'}->{$type})?$args->{'grep'}->{$type}:[$args->{'grep'}->{$type}];
                     foreach my $grep (@{$greps})
                     {
+                        #print Dumper("$line ... $grep\n");
                         if ($line=~ /$grep/)
                         {
-                           $file_data->{$1} .= $line;
-                           
+                           $file_data->{$type} .= $line;
                         }
                     }
-                } elsif ($args->{'substr'})
+                    
+                }
+            } elsif ($args->{'grep'}) {
+                # Straight up regular expression array
+                my $greps = ref($args->{'grep'})?$args->{'grep'}:[$args->{'grep'}];
+                foreach my $grep (@{$greps})
                 {
-                    my $vals = ref($args->{'val'})?$args->{'val'}:[$args->{'val'}];
-                    print "Next line:$_\n";
-                    foreach my $val (@{$vals})
+                    if ($line=~ /$grep/)
                     {
-                        if (substr($_,$args->{'pos'},length($val)) eq $val)
-                        {
-                           $file_data->{$val} .= $_;
-                        }
+                       $file_data->{$1} .= $line;
+                       
+                    }
+                }
+            } elsif ($args->{'substr'})
+            {
+                my $vals = ref($args->{'substr'}->{'val'})?$args->{'substr'}->{'val'}:[$args->{'substr'}->{'val'}];
+                #print "Next line:$_\n";
+                #print "Vals:".Dumper($vals);
+                foreach my $val (@{$vals})
+                {
+                   $file_data->{$val} .= ''; 
+                    
+                    #print substr($_,$args->{'substr'}->{'pos'},length($val))."\n";
+                    if (substr($_,$args->{'substr'}->{'pos'},length($val)) eq $val)
+                    {
+                        #print "!!!!";
+                       $file_data->{$val} .= $_;
                     }
                 }
             }
-            
-            # Output file data
-            foreach my $part (keys %{$file_data})
-            {
-                #print Dumper(keys %{$file_data});
-                print $part;
-                open my $fh, "> $in_file.$part" or die "Cannot write to $in_file.$part: $!";
-                print $fh $file_data->{$part};
-            
-                $out_files[@out_files] = "$in_file.$part";    
-            }
         }
+        
+        # Output file data
+        foreach my $part (keys %{$file_data})
+        {
+            open my $fh, "> $in_file.$part" or die "Cannot write to $in_file.$part: $!";
+            print $fh $file_data->{$part};
+        
+            $out_files[@out_files] = "$in_file.$part";    
+        }
+        unlink($in_file) unless ($self->{'keepSource'});
+        
     }
         
     return \@out_files;
@@ -298,6 +335,16 @@ Merge any file that matches 'filepath_for_reconstructed_file*'
 
  my $out_name = $fs->merge_file('filepath_for_reconstructed_file');
 
+ 
+=head1 CAVEATS
+
+This script isn't fully mature, and interfaces may change. I wouldn't stick it in your enterprise application if I were you.
+
+File::Split will create empty files if you split an empty file. So if you request five parts, you will receive five parts.
+
+File::Split will return undef if you try to split a non-existant file.
+
+ 
 =head1 AUTHOR
 
 Phil Middleton
