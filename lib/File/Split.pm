@@ -7,7 +7,7 @@ use strict;
 use warnings;
 
 
-our $VERSION = '0.25';
+our $VERSION = '0.26';
 
 sub new {
     my $class   = shift;
@@ -239,7 +239,7 @@ __END__
 
 =head1 NAME
 
-FILE::SPLIT
+File::Split
 
 =head1 SYNOPSIS
 
