@@ -7,7 +7,7 @@ use strict;
 use warnings;
 
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 
 sub new {
     my $class   = shift;
@@ -243,32 +243,32 @@ FILE::SPLIT
 =head1 SYNOPSIS
 
 Splits files.
-C<
+
     my $fs = File::Split->new({keepSource=>'1'});
 
     my $files_out = $fs->split_file({'parts' => 10},'filepath');
->
+
 =head1 DESCRIPTION
 
 File::Split defaults to removing the now-split file.
 
-    C<my $fs = File::Split->new({keepSource=>'1'});>
+ my $fs = File::Split->new({keepSource=>'1'});
 
 Split the file into ten equal-sized parts called filepath.1,filepath.2,...
 
-    C<my $files_out = $fs->split_file({'parts' => 10},'filepath');>
+ my $files_out = $fs->split_file({'parts' => 10},'filepath');
 
 Split the file into multiple parts with a size of 1000 lines or less.
 
-    C<my $files_out = $fs->split_file({'lines' => 1000},'filepath');>
+ my $files_out = $fs->split_file({'lines' => 1000},'filepath');
 
 Split files into sub-sections based on a substring value. Gives filepath.MB, filepath.SK
 
-    C<my $files_out = $fs->split_file({'substr'=>{pos=>'10000',val=>['MB','SK']}},'filepath');>
+ my $files_out = $fs->split_file({'substr'=>{pos=>'10000',val=>['MB','SK']}},'filepath');
 
 Split file based on regular expressions grouped in a hash of arrays of regular expressions. Gives files filepath.BC, filepath.AB,...
 
-C<    my $files_out = $fs->split_file({'grep'=>{
+ my $files_out = $fs->split_file({'grep'=>{
                                     'BC'=>['\t(V\d\C\d\C\d)\t'],
                                     'AB'=>['\t(T\d\C\d\C\d)\t'],
                                     'SK'=>['\t(S\d\C\d\C\d)\t'],
@@ -285,15 +285,14 @@ C<    my $files_out = $fs->split_file({'grep'=>{
                                         }
                                 },'dat/zip411Bus040710.TXT');
 
->
 
 Split file on array of regular expressions. filename extensions are based on the matched value.
 
-    C<$files_out = $fs->split_file({'grep'=>['\t(MB)\t','\t(SK)\t','\t(NB)\t','\t(NL)\t','\t(NT)\t','\t(NS)\t','\t(YT)\t','\t(PE)\t','\t(NU)\t','\t(BC)\t','\t(ON)\t','\t(AB)\t','\t(QC)\t']},'dat/zip411Bus041013.TXT');>
+ $files_out = $fs->split_file({'grep'=>['\t(MB)\t','\t(SK)\t','\t(NB)\t','\t(NL)\t','\t(NT)\t','\t(NS)\t','\t(YT)\t','\t(PE)\t','\t(NU)\t','\t(BC)\t','\t(ON)\t','\t(AB)\t','\t(QC)\t']},'dat/zip411Bus041013.TXT');
 
 Merge any file that matches 'filepath_for_reconstructed_file*'
 
-    C<my $out_name = $fs->merge_file('filepath_for_reconstructed_file');>
+ my $out_name = $fs->merge_file('filepath_for_reconstructed_file');
 
 =head1 AUTHOR
 
