@@ -7,7 +7,7 @@ use strict;
 use warnings;
 
 
-our $VERSION = '0.24';
+our $VERSION = '0.25';
 
 sub new {
     my $class   = shift;
@@ -238,15 +238,16 @@ sub read_files(@)
 __END__
 
 =head1 NAME
+
 FILE::SPLIT
 
 =head1 SYNOPSIS
 
-Splits files.
+ Splits files.
 
-    my $fs = File::Split->new({keepSource=>'1'});
+ my $fs = File::Split->new({keepSource=>'1'});
 
-    my $files_out = $fs->split_file({'parts' => 10},'filepath');
+ my $files_out = $fs->split_file({'parts' => 10},'filepath');
 
 =head1 DESCRIPTION
 
