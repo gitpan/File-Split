@@ -4,3 +4,4 @@ MANIFEST
 README
 t/File-Split.t
 lib/File/Split.pm
+META.yml                                 Module meta-data (added by MakeMaker)
